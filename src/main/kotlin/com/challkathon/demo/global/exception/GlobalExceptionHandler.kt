@@ -1,6 +1,7 @@
-package com.challkathon.demo.global.exception
+package com.example.lovekeeper.global.exception
 
 import com.challkathon.demo.global.common.BaseResponse
+import com.challkathon.demo.global.exception.BaseException
 import com.challkathon.demo.global.exception.code.BaseCode
 import com.challkathon.demo.global.exception.code.GlobalErrorStatus
 import mu.KotlinLogging
@@ -156,7 +157,10 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
             .body(BaseResponse.onFailure(errorCode.code, errorCode.message, errorArgs))
     }
 
-    private fun handleExceptionInternalFalse(errorCode: BaseCode, errorPoint: String?): ResponseEntity<BaseResponse<String>> {
+    private fun handleExceptionInternalFalse(
+        errorCode: BaseCode,
+        errorPoint: String?
+    ): ResponseEntity<BaseResponse<String>> {
         return ResponseEntity
             .status(errorCode.httpStatus)
             .body(BaseResponse.onFailure(errorCode.code, errorCode.message, errorPoint))

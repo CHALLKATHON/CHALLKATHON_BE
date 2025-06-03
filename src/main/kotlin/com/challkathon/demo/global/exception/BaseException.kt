@@ -3,7 +3,7 @@ package com.challkathon.demo.global.exception
 import com.challkathon.demo.global.exception.code.BaseCode
 import com.challkathon.demo.global.exception.code.BaseCodeInterface
 
-class BaseException(
+open class BaseException(
     private val errorCode: BaseCodeInterface
 ) : RuntimeException() {
 
