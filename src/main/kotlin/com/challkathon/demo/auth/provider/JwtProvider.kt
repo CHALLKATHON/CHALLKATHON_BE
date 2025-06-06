@@ -1,7 +1,8 @@
 package com.challkathon.demo.auth.provider
 
-import TokenType
-import com.challkathon.demo.auth.excepetion.code.AuthErrorStatus
+import com.challkathon.demo.auth.enums.TokenType
+import com.challkathon.demo.auth.exception.JwtAuthenticationException
+import com.challkathon.demo.auth.exception.code.AuthErrorStatus
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
@@ -17,13 +18,13 @@ class JwtProvider {
 
     private val logger = LoggerFactory.getLogger(JwtProvider::class.java)
 
-    @Value("\${jwt.secret:mySecretKey12345678901234567890123456789012345678901234567890}")
+    @Value("\${jwt.secret}")
     private lateinit var secret: String
 
-    @Value("\${jwt.access-token.expiration:3600000}") // 1시간
+    @Value("\${jwt.access-token-expiration:3600000}") // 1시간
     private var accessTokenExpiration: Long = 3600000
 
-    @Value("\${jwt.refresh-token.expiration:604800000}") // 7일
+    @Value("\${jwt.refresh-token-expiration:604800000}") // 7일
     private var refreshTokenExpiration: Long = 604800000
 
     @Value("\${jwt.issuer:spring-auth-app}")
@@ -169,9 +170,18 @@ class JwtProvider {
                 .build()
                 .parseSignedClaims(token)
                 .payload
+        } catch (ex: io.jsonwebtoken.ExpiredJwtException) {
+            logger.error("토큰 만료: ${ex.message}")
+            throw ex // JwtAuthenticationFilter에서 처리
+        } catch (ex: io.jsonwebtoken.MalformedJwtException) {
+            logger.error("잘못된 토큰 형식: ${ex.message}")
+            throw ex
+        } catch (ex: io.jsonwebtoken.security.SignatureException) {
+            logger.error("토큰 서명 검증 실패: ${ex.message}")
+            throw ex
         } catch (ex: Exception) {
             logger.error("토큰 파싱 실패: ${ex.message}")
-            throw JwtAuthenticationException(AuthErrorStatus.INVALID_TOKEN)
+            throw JwtAuthenticationException(AuthErrorStatus._TOKEN_INVALID)
         }
     }
 

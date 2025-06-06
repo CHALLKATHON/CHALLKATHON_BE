@@ -1,7 +1,7 @@
 package com.challkathon.demo.auth.handler
 
 import com.challkathon.demo.auth.provider.JwtProvider
-import com.example.auth.security.UserPrincipal
+import com.challkathon.demo.auth.security.UserPrincipal
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Value

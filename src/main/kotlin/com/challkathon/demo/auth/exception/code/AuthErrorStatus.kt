@@ -1,4 +1,4 @@
-package com.challkathon.demo.auth.excepetion.code
+package com.challkathon.demo.auth.exception.code
 
 import com.challkathon.demo.global.exception.code.BaseCode
 import com.challkathon.demo.global.exception.code.BaseCodeInterface

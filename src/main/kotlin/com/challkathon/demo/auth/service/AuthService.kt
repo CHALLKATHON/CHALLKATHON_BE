@@ -1,18 +1,30 @@
-package com.example.auth.service
+package com.challkathon.demo.auth.service
 
-import com.challkathon.demo.auth.excepetion.EmailAlreadyExistsException
+import com.challkathon.demo.auth.dto.request.SignInRequest
+import com.challkathon.demo.auth.dto.request.SignUpRequest
+import com.challkathon.demo.auth.dto.response.AuthResponse
+import com.challkathon.demo.auth.dto.response.TokenInfoResponse
+import com.challkathon.demo.auth.dto.response.UserInfoResponse
+import com.challkathon.demo.auth.exception.*
+import com.challkathon.demo.auth.exception.code.AuthErrorStatus
 import com.challkathon.demo.auth.provider.JwtProvider
-import com.challkathon.demo.auth.service.CustomUserDetailsService
+import com.challkathon.demo.auth.security.UserPrincipal
 import com.challkathon.demo.domain.user.entity.User
 import com.challkathon.demo.domain.user.entity.enums.AuthProvider
 import com.challkathon.demo.domain.user.repository.UserRepository
-import com.example.auth.security.UserPrincipal
-import org.slf4j.LoggerFactory
+import mu.KotlinLogging
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.authentication.BadCredentialsException
+import org.springframework.security.authentication.DisabledException
+import org.springframework.security.authentication.LockedException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
+
+private val log = KotlinLogging.logger {}
 
 @Service
 @Transactional
@@ -21,62 +33,68 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtProvider: JwtProvider,
     private val authenticationManager: AuthenticationManager,
-    private val userDetailsService: CustomUserDetailsService
+    private val customUserDetailsService: CustomUserDetailsService,
+    @Value("\${jwt.access-token-expiration:3600000}")
+    private val accessTokenExpiration: Long
 ) {
 
-    private val logger = LoggerFactory.getLogger(AuthService::class.java)
-
+    /**
+     * 회원가입
+     */
     fun signUp(signUpRequest: SignUpRequest): AuthResponse {
-        logger.info("회원가입 시도: {}", signUpRequest.email)
+        log.info { "회원가입 시도: ${signUpRequest.email}" }
 
-        // UserDetailsService를 통한 중복 검사
-        if (userDetailsService.existsByEmail(signUpRequest.email)) {
+        // 이메일 중복 검사
+        if (userRepository.existsByEmailAndAuthProvider(signUpRequest.email, AuthProvider.LOCAL)) {
             throw EmailAlreadyExistsException("이미 존재하는 이메일입니다: ${signUpRequest.email}")
         }
 
         // 사용자 생성
-        val user = User(
+        val user = User.createLocalUser(
             email = signUpRequest.email,
-            password = passwordEncoder.encode(signUpRequest.password),
-            username = signUpRequest.name,
-            authProvider = AuthProvider.LOCAL
+            username = signUpRequest.username,
+            encodedPassword = passwordEncoder.encode(signUpRequest.password)
         )
 
         val savedUser = userRepository.save(user)
-        logger.info("새 사용자 생성 완료: ID={}, Email={}", savedUser.id, savedUser.email)
+        log.info { "새 사용자 생성 완료: ID=${savedUser.id}, Email=${savedUser.email}" }
 
-        // UserDetailsService를 통해 UserPrincipal 획득
-        val userPrincipal = userDetailsService.loadUserByUsername(savedUser.email) as UserPrincipal
+        // UserPrincipal 생성
+        val userPrincipal = UserPrincipal.create(savedUser)
 
         // 토큰 생성
         val accessToken = jwtProvider.generateAccessToken(userPrincipal)
         val refreshToken = jwtProvider.generateRefreshToken(userPrincipal.username)
 
-        logger.info("회원가입 성공: {}", savedUser.email)
+        log.info { "회원가입 성공: ${savedUser.email}" }
 
         return AuthResponse(
             accessToken = accessToken,
             refreshToken = refreshToken,
-            user = UserInfo(
-                id = userPrincipal.id,
-                email = userPrincipal.email,
-                name = userPrincipal.name,
-                role = userPrincipal.role,
-                provider = userPrincipal.provider
+            expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
+            user = UserInfoResponse(
+                id = savedUser.id,
+                email = savedUser.email,
+                username = savedUser.username,
+                role = savedUser.role,
+                provider = savedUser.authProvider
             )
         )
     }
 
+    /**
+     * 로그인
+     */
     fun signIn(signInRequest: SignInRequest): AuthResponse {
-        logger.info("로그인 시도: {}", signInRequest.email)
+        log.info { "로그인 시도: ${signInRequest.email}" }
 
         try {
-            // 인증 (UserDetailsService가 자동으로 UserPrincipal 반환)
+            // 인증
             val authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken(signInRequest.email, signInRequest.password)
             )
 
-            // authentication.principal은 UserDetailsService가 반환한 UserPrincipal
+            // UserPrincipal 가져오기
             val userPrincipal = authentication.principal as UserPrincipal
 
             // 토큰 생성
@@ -86,29 +104,40 @@ class AuthService(
             // 마지막 로그인 시간 업데이트
             updateUserLastLogin(userPrincipal.email)
 
-            logger.info("로그인 성공: {}", signInRequest.email)
+            log.info { "로그인 성공: ${signInRequest.email}" }
 
             return AuthResponse(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
-                user = UserInfo(
+                expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
+                user = UserInfoResponse(
                     id = userPrincipal.id,
                     email = userPrincipal.email,
-                    name = userPrincipal.name,
+                    username = userPrincipal.name,
                     role = userPrincipal.role,
                     provider = userPrincipal.provider
                 )
             )
+        } catch (e: BadCredentialsException) {
+            log.warn { "로그인 실패 - 잘못된 자격 증명: ${signInRequest.email}" }
+            throw BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다")
+        } catch (e: DisabledException) {
+            log.warn { "로그인 실패 - 비활성화된 계정: ${signInRequest.email}" }
+            throw AccountDisabledException("비활성화된 계정입니다")
+        } catch (e: LockedException) {
+            log.warn { "로그인 실패 - 잠긴 계정: ${signInRequest.email}" }
+            throw AccountDisabledException("잠긴 계정입니다")
         } catch (e: Exception) {
-            logger.warn("로그인 실패: {} - {}", signInRequest.email, e.message)
-            throw e
+            log.error(e) { "로그인 중 예상치 못한 오류: ${signInRequest.email}" }
+            throw BadCredentialsException("로그인 처리 중 오류가 발생했습니다")
         }
     }
 
-    fun refreshToken(refreshTokenRequest: RefreshTokenRequest): AuthResponse {
-        val refreshToken = refreshTokenRequest.refreshToken
-
-        logger.info("토큰 갱신 요청")
+    /**
+     * 토큰 갱신
+     */
+    fun refreshToken(refreshToken: String): AuthResponse {
+        log.info { "토큰 갱신 요청" }
 
         try {
             // Refresh Token 유효성 검사
@@ -117,34 +146,72 @@ class AuthService(
             }
 
             val username = jwtProvider.extractUsername(refreshToken)
-            logger.info("토큰 갱신 대상 사용자: {}", username)
+            log.info { "토큰 갱신 대상 사용자: $username" }
 
-            // UserDetailsService를 통해 최신 사용자 정보 조회
-            val userPrincipal = userDetailsService.loadUserByUsername(username) as UserPrincipal
+            // 최신 사용자 정보 조회
+            val userPrincipal = customUserDetailsService.loadUserByUsername(username) as UserPrincipal
 
             // 새로운 토큰 발급
             val newAccessToken = jwtProvider.generateAccessToken(userPrincipal)
             val newRefreshToken = jwtProvider.generateRefreshToken(userPrincipal.username)
 
-            logger.info("토큰 갱신 성공: {}", username)
+            log.info { "토큰 갱신 성공: $username" }
 
             return AuthResponse(
                 accessToken = newAccessToken,
                 refreshToken = newRefreshToken,
-                user = UserInfo(
+                expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
+                user = UserInfoResponse(
                     id = userPrincipal.id,
                     email = userPrincipal.email,
-                    name = userPrincipal.name,
+                    username = userPrincipal.name,
                     role = userPrincipal.role,
                     provider = userPrincipal.provider
                 )
             )
         } catch (e: RefreshTokenException) {
-            logger.warn("토큰 갱신 실패: {}", e.message)
+            log.warn { "토큰 갱신 실패: ${e.message}" }
             throw e
         } catch (e: Exception) {
-            logger.warn("토큰 갱신 실패: {}", e.message)
+            log.warn { "토큰 갱신 실패: ${e.message}" }
             throw RefreshTokenException(AuthErrorStatus._REFRESH_TOKEN_INVALID)
+        }
+    }
+
+    /**
+     * OAuth2 사용자 등록 또는 업데이트
+     */
+    fun processOAuthPostLogin(
+        email: String,
+        name: String,
+        provider: AuthProvider,
+        providerId: String,
+        profileImageUrl: String? = null
+    ): User {
+        log.info { "OAuth2 로그인 처리: $email ($provider)" }
+
+        val existingUser = userRepository.findByEmailAndAuthProvider(email, provider)
+
+        return if (existingUser.isPresent) {
+            // 기존 사용자 업데이트
+            val user = existingUser.get()
+            user.updateLastLogin()
+            user.updateProfile(name, profileImageUrl)
+            val updatedUser = userRepository.save(user)
+            log.info { "기존 OAuth2 사용자 로그인: $email" }
+            updatedUser
+        } else {
+            // 새 사용자 생성
+            val newUser = User.createOAuth2User(
+                email = email,
+                username = name,
+                authProvider = provider,
+                providerId = providerId,
+                profileImageUrl = profileImageUrl
+            )
+            val savedUser = userRepository.save(newUser)
+            log.info { "새 OAuth2 사용자 생성: $email" }
+            savedUser
         }
     }
 
@@ -155,7 +222,7 @@ class AuthService(
         return try {
             jwtProvider.validateAccessToken(token)
         } catch (e: Exception) {
-            logger.warn("토큰 검증 실패: {}", e.message)
+            log.warn { "토큰 검증 실패: ${e.message}" }
             false
         }
     }
@@ -163,51 +230,22 @@ class AuthService(
     /**
      * 토큰 정보 조회
      */
-    fun getTokenInfo(token: String): Map<String, Any>? {
+    fun getTokenInfo(token: String): TokenInfoResponse? {
         return try {
             val tokenInfo = jwtProvider.getTokenInfo(token)
             tokenInfo?.let {
-                mapOf(
-                    "username" to it.username,
-                    "tokenType" to (it.tokenType?.name ?: "UNKNOWN"),
-                    "issuedAt" to it.issuedAt,
-                    "expiration" to it.expiration,
-                    "isExpired" to it.isExpired,
-                    "remainingTimeSeconds" to (it.remainingTime / 1000)
+                TokenInfoResponse(
+                    username = it.username,
+                    tokenType = it.tokenType?.name ?: "UNKNOWN",
+                    issuedAt = it.issuedAt.toString(),
+                    expiration = it.expiration.toString(),
+                    isExpired = it.isExpired,
+                    remainingTimeSeconds = it.remainingTime / 1000
                 )
             }
         } catch (e: Exception) {
-            logger.warn("토큰 정보 조회 실패: {}", e.message)
+            log.warn { "토큰 정보 조회 실패: ${e.message}" }
             null
-        }
-    }
-
-    /**
-     * OAuth2 사용자 등록 또는 업데이트
-     */
-    fun processOAuthPostLogin(email: String, name: String, provider: AuthProvider, providerId: String): User {
-        logger.info("OAuth2 로그인 처리: {} ({})", email, provider)
-
-        val existingUser = userRepository.findByEmailAndProvider(email, provider)
-
-        return if (existingUser.isPresent) {
-            // 기존 사용자 업데이트
-            val user = existingUser.get()
-            user.updateLastLogin()
-            val updatedUser = userRepository.save(user)
-            logger.info("기존 OAuth2 사용자 로그인: {}", email)
-            updatedUser
-        } else {
-            // 새 사용자 생성
-            val newUser = User(
-                email = email,
-                name = name,
-                provider = provider,
-                providerId = providerId
-            )
-            val savedUser = userRepository.save(newUser)
-            logger.info("새 OAuth2 사용자 생성: {}", email)
-            savedUser
         }
     }
 
@@ -216,11 +254,11 @@ class AuthService(
      */
     private fun updateUserLastLogin(email: String) {
         try {
-            val user = userDetailsService.loadUserEntityByUsername(email)
+            val user = customUserDetailsService.loadUserEntityByUsername(email)
             user.updateLastLogin()
             userRepository.save(user)
         } catch (e: Exception) {
-            logger.warn("마지막 로그인 시간 업데이트 실패: {} - {}", email, e.message)
+            log.warn { "마지막 로그인 시간 업데이트 실패: $email - ${e.message}" }
             // 로그인 시간 업데이트 실패는 전체 로그인 프로세스를 중단시키지 않음
         }
     }

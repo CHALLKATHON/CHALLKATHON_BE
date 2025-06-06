@@ -90,7 +90,7 @@ spring:
 
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:mySecretKeyForChallkathonDemo12345678901234567890123456789012345678901234567890}
+  secret: ${JWT_SECRET:CHANGE_THIS_TO_RANDOM_SECRET_KEY_MIN_64_CHARS_FOR_HS512_ALGORITHM_SECURITY}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}    # 1시간 (밀리초)
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000} # 7일 (밀리초)
   issuer: ${JWT_ISSUER:challkathon-demo}
@@ -99,6 +99,8 @@ jwt:
 app:
   oauth2:
     authorized-redirect-uris: ${AUTHORIZED_REDIRECT_URIS:http://localhost:3000/oauth2/redirect,http://localhost:8080/oauth2/redirect}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
 
 # 로깅 설정
 logging:

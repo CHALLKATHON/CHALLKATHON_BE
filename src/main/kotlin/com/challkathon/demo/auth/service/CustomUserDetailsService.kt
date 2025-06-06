@@ -2,7 +2,7 @@ package com.challkathon.demo.auth.service
 
 import com.challkathon.demo.domain.user.entity.User
 import com.challkathon.demo.domain.user.repository.UserRepository
-import com.example.auth.security.UserPrincipal
+import com.challkathon.demo.auth.security.UserPrincipal
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService

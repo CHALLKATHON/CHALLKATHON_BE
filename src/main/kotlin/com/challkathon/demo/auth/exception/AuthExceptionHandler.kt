@@ -1,6 +1,6 @@
-package com.challkathon.demo.auth.excepetion
+package com.challkathon.demo.auth.exception
 
-import com.challkathon.demo.auth.excepetion.code.AuthErrorStatus
+import com.challkathon.demo.auth.exception.code.AuthErrorStatus
 import com.challkathon.demo.global.common.BaseResponse
 import com.challkathon.demo.global.exception.BaseException
 import com.challkathon.demo.global.exception.code.BaseCode
@@ -33,7 +33,7 @@ class AuthExceptionHandler {
     @ExceptionHandler(JwtAuthenticationException::class)
     fun handleJwtAuthenticationException(e: JwtAuthenticationException): ResponseEntity<BaseResponse<String>> {
         log.error(e) { "[handleJwtAuthenticationException] JWT 인증 실패: ${e.message}" }
-        return handleExceptionInternal(AuthErrorStatus._JWT_AUTHENTICATION_FAILED.getCode())
+        return handleExceptionInternal(e.getErrorCode())
     }
 
     @ExceptionHandler(ExpiredJwtException::class)
@@ -61,7 +61,7 @@ class AuthExceptionHandler {
     }
 
     /**
-     * 인증 관련 예외 처리
+     * Spring Security 인증 관련 예외 처리
      */
     @ExceptionHandler(BadCredentialsException::class)
     fun handleBadCredentialsException(e: BadCredentialsException): ResponseEntity<BaseResponse<String>> {
@@ -102,12 +102,6 @@ class AuthExceptionHandler {
         return handleExceptionInternal(e.getErrorCode())
     }
 
-    @ExceptionHandler(TokenExpiredException::class)
-    fun handleTokenExpiredException(e: TokenExpiredException): ResponseEntity<BaseResponse<String>> {
-        log.error(e) { "[handleTokenExpiredException] 토큰 만료: ${e.message}" }
-        return handleExceptionInternal(e.getErrorCode())
-    }
-
     @ExceptionHandler(RefreshTokenException::class)
     fun handleRefreshTokenException(e: RefreshTokenException): ResponseEntity<BaseResponse<String>> {
         log.error(e) { "[handleRefreshTokenException] Refresh Token 오류: ${e.message}" }
@@ -139,42 +133,8 @@ class AuthExceptionHandler {
             errors.merge(fieldName, message) { oldVal, newVal -> "$oldVal, $newVal" }
         }
 
-        log.error(e) { "[handleValidationException] 입력 데이터 검증 실패: ${e.message}" }
+        log.error { "[handleValidationException] 입력 데이터 검증 실패: $errors" }
         return handleExceptionInternalArgs(AuthErrorStatus._VALIDATION_FAILED.getCode(), errors)
-    }
-
-    /**
-     * 기본 비즈니스 예외 처리
-     */
-    @ExceptionHandler(BaseException::class)
-    fun handleBaseException(e: BaseException): ResponseEntity<BaseResponse<String>> {
-        val errorCode = e.getErrorCode()
-        log.error(e) { "[handleBaseException] 비즈니스 예외: ${e.message}" }
-        return handleExceptionInternal(errorCode)
-    }
-
-    /**
-     * 일반적인 런타임 예외 처리
-     */
-    @ExceptionHandler(RuntimeException::class)
-    fun handleRuntimeException(e: RuntimeException): ResponseEntity<BaseResponse<String>> {
-        log.error(e) { "[handleRuntimeException] 런타임 예외: ${e.message}" }
-        return handleExceptionInternalFalse(
-            GlobalErrorStatus._BAD_REQUEST.getCode(),
-            e.message
-        )
-    }
-
-    /**
-     * 예상치 못한 예외 처리
-     */
-    @ExceptionHandler(Exception::class)
-    fun handleGenericException(e: Exception): ResponseEntity<BaseResponse<String>> {
-        log.error(e) { "[handleGenericException] 예상치 못한 예외: ${e.message}" }
-        return handleExceptionInternalFalse(
-            GlobalErrorStatus._INTERNAL_SERVER_ERROR.getCode(),
-            e.message
-        )
     }
 
     /**
@@ -206,18 +166,3 @@ class AuthExceptionHandler {
             .body(BaseResponse.onFailure(errorCode.code, errorCode.message, errorPoint))
     }
 }
-
-/**
- * 인증 관련 커스텀 예외 클래스들
- */
-class JwtAuthenticationException(message: String) : BaseException(AuthErrorStatus._JWT_AUTHENTICATION_FAILED)
-
-class EmailAlreadyExistsException(message: String) : BaseException(AuthErrorStatus._EMAIL_ALREADY_EXISTS)
-
-class TokenExpiredException(message: String) : BaseException(AuthErrorStatus._TOKEN_EXPIRED)
-
-class RefreshTokenException(authErrorStatus: AuthErrorStatus) : BaseException(authErrorStatus)
-
-class OAuth2AuthenticationException(authErrorStatus: AuthErrorStatus) : BaseException(authErrorStatus)
-
-class InsufficientPrivilegesException(authErrorStatus: AuthErrorStatus) : BaseException(authErrorStatus)
