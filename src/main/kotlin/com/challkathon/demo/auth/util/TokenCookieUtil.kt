@@ -23,6 +23,7 @@ class TokenCookieUtil {
 
     companion object {
         const val ACCESS_TOKEN_HEADER = "Authorization"
+        const val REFRESH_TOKEN_HEADER = "X-Refresh-Token"
         const val TOKEN_PREFIX = "Bearer "
     }
 
@@ -31,8 +32,13 @@ class TokenCookieUtil {
      */
     fun setAccessTokenHeader(response: HttpServletResponse, accessToken: String) {
         response.setHeader(ACCESS_TOKEN_HEADER, "$TOKEN_PREFIX$accessToken")
-        // CORS를 위해 노출할 헤더 설정
-        response.setHeader("Access-Control-Expose-Headers", ACCESS_TOKEN_HEADER)
+    }
+    
+    /**
+     * Refresh Token을 응답 헤더에 설정
+     */
+    fun setRefreshTokenHeader(response: HttpServletResponse, refreshToken: String) {
+        response.setHeader(REFRESH_TOKEN_HEADER, refreshToken)
     }
 
     /**
@@ -85,8 +91,9 @@ class TokenCookieUtil {
      * 모든 토큰 정리 (로그아웃 시 사용)
      */
     fun clearAllTokens(response: HttpServletResponse) {
-        // Access Token 헤더 제거
+        // 헤더에서 토큰 제거
         response.setHeader(ACCESS_TOKEN_HEADER, "")
+        response.setHeader(REFRESH_TOKEN_HEADER, "")
 
         // Refresh Token 쿠키 삭제
         deleteRefreshTokenCookie(response)
@@ -94,9 +101,14 @@ class TokenCookieUtil {
 
     /**
      * 토큰 설정 (회원가입, 로그인 시 사용)
+     * Access Token과 Refresh Token을 모두 헤더에 설정하고,
+     * Refresh Token은 추가로 쿠키에도 설정
      */
     fun setTokens(response: HttpServletResponse, accessToken: String, refreshToken: String) {
+        // 헤더에 토큰 설정
         setAccessTokenHeader(response, accessToken)
+        setRefreshTokenHeader(response, refreshToken)
+        // Refresh Token은 쿠키에도 설정 (선택적)
         setRefreshTokenCookie(response, refreshToken)
     }
     

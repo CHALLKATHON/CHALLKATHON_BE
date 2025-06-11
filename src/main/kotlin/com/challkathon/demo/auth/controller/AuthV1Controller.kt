@@ -50,11 +50,7 @@ class AuthV1Controller(
         
         val authResult = authService.signUp(signUpRequest)
         
-        // 헤더에 토큰 설정
-        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
-        response.setHeader("X-Refresh-Token", authResult.refreshToken)
-        
-        // 쿠키에도 토큰 설정 (선택적)
+        // 헤더와 쿠키에 토큰 설정
         tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
         
         return ResponseEntity
@@ -76,11 +72,7 @@ class AuthV1Controller(
         
         val authResult = authService.signIn(signInRequest)
         
-        // 헤더에 토큰 설정
-        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
-        response.setHeader("X-Refresh-Token", authResult.refreshToken)
-        
-        // 쿠키에도 토큰 설정 (선택적)
+        // 헤더와 쿠키에 토큰 설정
         tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
         
         return ResponseEntity.ok(BaseResponse.onSuccess(SignInResponse(user = authResult.userInfo)))
@@ -100,11 +92,7 @@ class AuthV1Controller(
         
         val authResult = authService.refreshToken(refreshTokenRequest.refreshToken)
         
-        // 헤더에 새로운 토큰 설정
-        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
-        response.setHeader("X-Refresh-Token", authResult.refreshToken)
-        
-        // 쿠키에도 새로운 토큰 설정 (선택적)
+        // 헤더와 쿠키에 새로운 토큰 설정
         tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
         
         return ResponseEntity.ok(BaseResponse.onSuccess(SignInResponse(user = authResult.userInfo)))
