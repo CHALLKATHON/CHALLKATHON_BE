@@ -1,8 +1,8 @@
 package com.challkathon.demo.auth.service
 
+import AuthResult
 import com.challkathon.demo.auth.dto.request.SignInRequest
 import com.challkathon.demo.auth.dto.request.SignUpRequest
-import com.challkathon.demo.auth.dto.response.AuthResponse
 import com.challkathon.demo.auth.dto.response.TokenInfoResponse
 import com.challkathon.demo.auth.dto.response.UserInfoResponse
 import com.challkathon.demo.auth.exception.AccountDisabledException
@@ -26,12 +26,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 private val log = KotlinLogging.logger {}
-
-data class AuthResult(
-    val accessToken: String,
-    val refreshToken: String,
-    val userInfo: UserInfoResponse
-)
 
 @Service
 @Transactional
