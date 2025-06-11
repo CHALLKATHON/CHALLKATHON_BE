@@ -57,44 +57,46 @@ class SecurityConfig(
             .httpBasic { it.disable() }
             .authorizeHttpRequests { auth ->
                 auth
-                    // Swagger UI 관련 경로들을 먼저 처리
+                    // Public endpoints
+                    .requestMatchers(
+                        "/",
+                        "/error",
+                        "/favicon.ico",
+                        "/login",
+                        "/profile",
+                        "/oauth2/redirect"
+                    ).permitAll()
+                    // Swagger UI
                     .requestMatchers(
                         "/swagger-ui/**",
                         "/swagger-ui.html",
                         "/v3/api-docs/**",
-                        "/v3/api-docs",
                         "/swagger-resources/**",
-                        "/webjars/**",
-                        "/configuration/**"
-                    ).permitAll()
-                    // Public auth endpoints
-                    .requestMatchers(
-                        "/api/v1/auth/signup",
-                        "/api/v1/auth/signin",
-                        "/api/v1/auth/refresh"
+                        "/webjars/**"
                     ).permitAll()
                     // OAuth2 endpoints
                     .requestMatchers(
                         "/oauth2/**",
                         "/login/oauth2/**"
                     ).permitAll()
-                    // H2 Console (개발 환경용)
-                    .requestMatchers("/h2-console/**").permitAll()
-                    // Public test endpoint
-                    .requestMatchers("/api/v1/test/public").permitAll()
-                    // Error endpoint
-                    .requestMatchers("/error").permitAll()
-                    // Admin endpoints  
-                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                    // Protected auth endpoints (logout, me, etc)
-                    .requestMatchers("/api/v1/auth/**").authenticated()
-                    // All other endpoints require authentication
+                    // Public API endpoints
+                    .requestMatchers(
+                        "/api/v1/auth/signup",
+                        "/api/v1/auth/signin",
+                        "/api/v1/auth/refresh",
+                        "/api/v1/test/public"
+                    ).permitAll()
+                    // Static resources - using PathRequest for better handling
+                    .requestMatchers("/static/**").permitAll()
+                    .requestMatchers("/css/**").permitAll()
+                    .requestMatchers("/js/**").permitAll()
+                    .requestMatchers("/images/**").permitAll()
+                    // Everything else requires authentication
                     .anyRequest().authenticated()
             }
             .oauth2Login { oauth2 ->
                 oauth2
-                    .authorizationEndpoint { it.baseUri("/oauth2/authorize") }
-                    .redirectionEndpoint { it.baseUri("/oauth2/callback/*") }
+                    .loginPage("/login")
                     .userInfoEndpoint { it.userService(customOAuth2UserService) }
                     .successHandler(oAuth2AuthenticationSuccessHandler)
                     .failureHandler(oAuth2AuthenticationFailureHandler)
@@ -104,13 +106,7 @@ class SecurityConfig(
                     .authenticationEntryPoint(customAuthenticationEntryPoint)
                     .accessDeniedHandler(customAccessDeniedHandler)
             }
-            // Add JWT filter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
-
-        // H2 Console 설정 (개발 환경용)
-        http.headers { headers ->
-            headers.frameOptions { it.sameOrigin() }
-        }
 
         return http.build()
     }

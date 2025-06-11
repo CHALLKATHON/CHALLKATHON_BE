@@ -40,6 +40,7 @@ class JwtAuthenticationFilter(
         "/api/v1/auth/signin",
         "/api/v1/auth/refresh",
         "/oauth2/**",
+        "/login/**",
         "/login/oauth2/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
@@ -50,7 +51,10 @@ class JwtAuthenticationFilter(
         "/h2-console/**",
         "/api/v1/test/public",
         "/favicon.ico",
-        "/error"
+        "/error",
+        "/",
+        "/profile",
+        "/oauth2/redirect" // OAuth2 리다이렉트 페이지는 인증 없이 접근 가능
     )
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {

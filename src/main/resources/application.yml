@@ -25,12 +25,10 @@ spring:
             client-name: kakao
             authorization-grant-type: authorization_code
             redirect-uri: http://localhost:8080/login/oauth2/code/kakao
-            client-authentication-method: POST
+            client-authentication-method: client_secret_post
             scope:
               - profile_nickname
-              - profile_image
               - account_email
-        
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
@@ -61,6 +59,15 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+
+# 로깅 설정 (디버그용)
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: TRACE
+    org.springframework.security.web: DEBUG
+    org.springframework.boot.autoconfigure.security: DEBUG
+    com.challkathon.demo: DEBUG
 
 # Swagger 설정
 springdoc:
