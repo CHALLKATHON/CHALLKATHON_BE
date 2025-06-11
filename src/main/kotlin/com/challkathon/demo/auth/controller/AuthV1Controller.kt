@@ -3,9 +3,11 @@ package com.challkathon.demo.auth.controller
 import com.challkathon.demo.auth.dto.request.SignInRequest
 import com.challkathon.demo.auth.dto.request.SignUpRequest
 import com.challkathon.demo.auth.dto.response.AuthResponse
+import com.challkathon.demo.auth.dto.response.SignInResponse
 import com.challkathon.demo.auth.dto.response.RefreshTokenRequest
 import com.challkathon.demo.auth.dto.response.TokenInfoResponse
 import com.challkathon.demo.auth.service.AuthService
+import com.challkathon.demo.auth.service.AuthResult
 import com.challkathon.demo.auth.util.TokenCookieUtil
 import com.challkathon.demo.global.common.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -43,17 +45,21 @@ class AuthV1Controller(
     fun signUp(
         @Valid @RequestBody signUpRequest: SignUpRequest,
         response: HttpServletResponse
-    ): ResponseEntity<BaseResponse<AuthResponse>> {
+    ): ResponseEntity<BaseResponse<SignInResponse>> {
         log.info { "회원가입 요청: ${signUpRequest.email}" }
         
-        val authResponse = authService.signUp(signUpRequest)
+        val authResult = authService.signUp(signUpRequest)
         
-        // 쿠키에 토큰 설정 (선택적)
-        tokenCookieUtil.addTokenCookies(response, authResponse.accessToken, authResponse.refreshToken)
+        // 헤더에 토큰 설정
+        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
+        response.setHeader("X-Refresh-Token", authResult.refreshToken)
+        
+        // 쿠키에도 토큰 설정 (선택적)
+        tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
         
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(BaseResponse.onSuccessCreate(authResponse))
+            .body(BaseResponse.onSuccessCreate(SignInResponse(user = authResult.userInfo)))
     }
 
     @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인을 진행합니다")
@@ -65,15 +71,19 @@ class AuthV1Controller(
     fun signIn(
         @Valid @RequestBody signInRequest: SignInRequest,
         response: HttpServletResponse
-    ): ResponseEntity<BaseResponse<AuthResponse>> {
+    ): ResponseEntity<BaseResponse<SignInResponse>> {
         log.info { "로그인 요청: ${signInRequest.email}" }
         
-        val authResponse = authService.signIn(signInRequest)
+        val authResult = authService.signIn(signInRequest)
         
-        // 쿠키에 토큰 설정 (선택적)
-        tokenCookieUtil.addTokenCookies(response, authResponse.accessToken, authResponse.refreshToken)
+        // 헤더에 토큰 설정
+        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
+        response.setHeader("X-Refresh-Token", authResult.refreshToken)
         
-        return ResponseEntity.ok(BaseResponse.onSuccess(authResponse))
+        // 쿠키에도 토큰 설정 (선택적)
+        tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
+        
+        return ResponseEntity.ok(BaseResponse.onSuccess(SignInResponse(user = authResult.userInfo)))
     }
 
     @Operation(summary = "토큰 갱신", description = "리프레시 토큰으로 새로운 액세스 토큰을 발급받습니다")
@@ -85,15 +95,19 @@ class AuthV1Controller(
     fun refreshToken(
         @Valid @RequestBody refreshTokenRequest: RefreshTokenRequest,
         response: HttpServletResponse
-    ): ResponseEntity<BaseResponse<AuthResponse>> {
+    ): ResponseEntity<BaseResponse<SignInResponse>> {
         log.info { "토큰 갱신 요청" }
         
-        val authResponse = authService.refreshToken(refreshTokenRequest.refreshToken)
+        val authResult = authService.refreshToken(refreshTokenRequest.refreshToken)
         
-        // 쿠키에 새로운 토큰 설정 (선택적)
-        tokenCookieUtil.addTokenCookies(response, authResponse.accessToken, authResponse.refreshToken)
+        // 헤더에 새로운 토큰 설정
+        response.setHeader("Authorization", "Bearer ${authResult.accessToken}")
+        response.setHeader("X-Refresh-Token", authResult.refreshToken)
         
-        return ResponseEntity.ok(BaseResponse.onSuccess(authResponse))
+        // 쿠키에도 새로운 토큰 설정 (선택적)
+        tokenCookieUtil.addTokenCookies(response, authResult.accessToken, authResult.refreshToken)
+        
+        return ResponseEntity.ok(BaseResponse.onSuccess(SignInResponse(user = authResult.userInfo)))
     }
 
     @Operation(

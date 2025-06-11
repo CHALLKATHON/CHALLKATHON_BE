@@ -5,7 +5,9 @@ import com.challkathon.demo.auth.dto.request.SignUpRequest
 import com.challkathon.demo.auth.dto.response.AuthResponse
 import com.challkathon.demo.auth.dto.response.TokenInfoResponse
 import com.challkathon.demo.auth.dto.response.UserInfoResponse
-import com.challkathon.demo.auth.exception.*
+import com.challkathon.demo.auth.exception.AccountDisabledException
+import com.challkathon.demo.auth.exception.EmailAlreadyExistsException
+import com.challkathon.demo.auth.exception.RefreshTokenException
 import com.challkathon.demo.auth.exception.code.AuthErrorStatus
 import com.challkathon.demo.auth.provider.JwtProvider
 import com.challkathon.demo.auth.security.UserPrincipal
@@ -22,9 +24,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 
 private val log = KotlinLogging.logger {}
+
+data class AuthResult(
+    val accessToken: String,
+    val refreshToken: String,
+    val userInfo: UserInfoResponse
+)
 
 @Service
 @Transactional
@@ -41,7 +48,7 @@ class AuthService(
     /**
      * 회원가입
      */
-    fun signUp(signUpRequest: SignUpRequest): AuthResponse {
+    fun signUp(signUpRequest: SignUpRequest): AuthResult {
         log.info { "회원가입 시도: ${signUpRequest.email}" }
 
         // 이메일 중복 검사
@@ -68,11 +75,10 @@ class AuthService(
 
         log.info { "회원가입 성공: ${savedUser.email}" }
 
-        return AuthResponse(
+        return AuthResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
-            expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
-            user = UserInfoResponse(
+            userInfo = UserInfoResponse(
                 id = savedUser.id,
                 email = savedUser.email,
                 username = savedUser.username,
@@ -85,7 +91,7 @@ class AuthService(
     /**
      * 로그인
      */
-    fun signIn(signInRequest: SignInRequest): AuthResponse {
+    fun signIn(signInRequest: SignInRequest): AuthResult {
         log.info { "로그인 시도: ${signInRequest.email}" }
 
         try {
@@ -106,14 +112,13 @@ class AuthService(
 
             log.info { "로그인 성공: ${signInRequest.email}" }
 
-            return AuthResponse(
+            return AuthResult(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
-                expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
-                user = UserInfoResponse(
+                userInfo = UserInfoResponse(
                     id = userPrincipal.id,
                     email = userPrincipal.email,
-                    username = userPrincipal.name,
+                    username = userPrincipal.userName,
                     role = userPrincipal.role,
                     provider = userPrincipal.provider
                 )
@@ -136,7 +141,7 @@ class AuthService(
     /**
      * 토큰 갱신
      */
-    fun refreshToken(refreshToken: String): AuthResponse {
+    fun refreshToken(refreshToken: String): AuthResult {
         log.info { "토큰 갱신 요청" }
 
         try {
@@ -157,14 +162,13 @@ class AuthService(
 
             log.info { "토큰 갱신 성공: $username" }
 
-            return AuthResponse(
+            return AuthResult(
                 accessToken = newAccessToken,
                 refreshToken = newRefreshToken,
-                expiresIn = accessTokenExpiration / 1000, // 밀리초를 초로 변환
-                user = UserInfoResponse(
+                userInfo = UserInfoResponse(
                     id = userPrincipal.id,
                     email = userPrincipal.email,
-                    username = userPrincipal.name,
+                    username = userPrincipal.userName,
                     role = userPrincipal.role,
                     provider = userPrincipal.provider
                 )
@@ -175,43 +179,6 @@ class AuthService(
         } catch (e: Exception) {
             log.warn { "토큰 갱신 실패: ${e.message}" }
             throw RefreshTokenException(AuthErrorStatus._REFRESH_TOKEN_INVALID)
-        }
-    }
-
-    /**
-     * OAuth2 사용자 등록 또는 업데이트
-     */
-    fun processOAuthPostLogin(
-        email: String,
-        name: String,
-        provider: AuthProvider,
-        providerId: String,
-        profileImageUrl: String? = null
-    ): User {
-        log.info { "OAuth2 로그인 처리: $email ($provider)" }
-
-        val existingUser = userRepository.findByEmailAndAuthProvider(email, provider)
-
-        return if (existingUser.isPresent) {
-            // 기존 사용자 업데이트
-            val user = existingUser.get()
-            user.updateLastLogin()
-            user.updateProfile(name, profileImageUrl)
-            val updatedUser = userRepository.save(user)
-            log.info { "기존 OAuth2 사용자 로그인: $email" }
-            updatedUser
-        } else {
-            // 새 사용자 생성
-            val newUser = User.createOAuth2User(
-                email = email,
-                username = name,
-                authProvider = provider,
-                providerId = providerId,
-                profileImageUrl = profileImageUrl
-            )
-            val savedUser = userRepository.save(newUser)
-            log.info { "새 OAuth2 사용자 생성: $email" }
-            savedUser
         }
     }
 

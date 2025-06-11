@@ -5,7 +5,6 @@ import com.challkathon.demo.auth.exception.code.AuthErrorStatus
 import com.challkathon.demo.auth.provider.JwtProvider
 import com.challkathon.demo.auth.service.CustomUserDetailsService
 import com.challkathon.demo.global.common.BaseResponse
-import com.challkathon.demo.global.exception.code.BaseCode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.MalformedJwtException
@@ -22,7 +21,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.stereotype.Component
 import org.springframework.util.AntPathMatcher
-import org.springframework.util.StringUtils
 import org.springframework.web.filter.OncePerRequestFilter
 
 private val log = KotlinLogging.logger {}
@@ -35,25 +33,44 @@ class JwtAuthenticationFilter(
 ) : OncePerRequestFilter() {
 
     private val pathMatcher = AntPathMatcher()
-    
+
     // 인증을 건너뛸 경로들
     private val excludedPaths = listOf(
         "/api/v1/auth/signup",
-        "/api/v1/auth/signin", 
+        "/api/v1/auth/signin",
         "/api/v1/auth/refresh",
         "/oauth2/**",
         "/login/oauth2/**",
         "/swagger-ui/**",
+        "/swagger-ui.html",
         "/v3/api-docs/**",
+        "/v3/api-docs",
+        "/swagger-resources/**",
+        "/webjars/**",
         "/h2-console/**",
-        "/api/v1/test/public"
+        "/api/v1/test/public",
+        "/favicon.ico",
+        "/error"
     )
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
-        val path = request.servletPath
-        return excludedPaths.any { pattern ->
-            pathMatcher.match(pattern, path)
+        val path = request.requestURI
+        val contextPath = request.contextPath
+        val pathToCheck = if (contextPath.isNotEmpty() && path.startsWith(contextPath)) {
+            path.substring(contextPath.length)
+        } else {
+            path
         }
+
+        val shouldExclude = excludedPaths.any { pattern ->
+            pathMatcher.match(pattern, pathToCheck)
+        }
+
+        if (shouldExclude) {
+            log.debug { "JWT 필터 제외 경로: $pathToCheck" }
+        }
+
+        return shouldExclude
     }
 
     override fun doFilterInternal(
@@ -64,9 +81,14 @@ class JwtAuthenticationFilter(
         try {
             val jwt = getJwtFromRequest(request)
 
-            if (StringUtils.hasText(jwt) && SecurityContextHolder.getContext().authentication == null) {
-                processJwtAuthentication(jwt!!, request)
+            // JWT가 있을 경우에만 처리
+            if (!jwt.isNullOrBlank()) {
+                // 이미 인증되어 있지 않은 경우에만 처리
+                if (SecurityContextHolder.getContext().authentication == null) {
+                    processJwtAuthentication(jwt, request)
+                }
             }
+            // JWT가 없으면 그냥 다음 필터로 통과
         } catch (ex: ExpiredJwtException) {
             log.debug { "토큰이 만료되었습니다: ${ex.message}" }
             setErrorResponse(response, AuthErrorStatus._TOKEN_EXPIRED)
@@ -115,12 +137,12 @@ class JwtAuthenticationFilter(
 
         // Authentication 객체 생성 및 SecurityContext에 설정
         val authentication = UsernamePasswordAuthenticationToken(
-            userDetails, 
-            null, 
+            userDetails,
+            null,
             userDetails.authorities
         )
         authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
-        
+
         SecurityContextHolder.getContext().authentication = authentication
         log.debug { "사용자 인증 성공: $username" }
     }

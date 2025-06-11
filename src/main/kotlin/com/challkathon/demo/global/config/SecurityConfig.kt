@@ -62,7 +62,17 @@ class SecurityConfig(
             .httpBasic { it.disable() }
             .authorizeHttpRequests { auth ->
                 auth
-                    // Public auth endpoints (회원가입, 로그인, 토큰 갱신만)
+                    // Swagger UI 관련 경로들을 먼저 처리
+                    .requestMatchers(
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",
+                        "/v3/api-docs",
+                        "/swagger-resources/**",
+                        "/webjars/**",
+                        "/configuration/**"
+                    ).permitAll()
+                    // Public auth endpoints
                     .requestMatchers(
                         "/api/v1/auth/signup",
                         "/api/v1/auth/signin",
@@ -73,19 +83,16 @@ class SecurityConfig(
                         "/oauth2/**",
                         "/login/oauth2/**"
                     ).permitAll()
-                    // API documentation
-                    .requestMatchers(
-                        "/swagger-ui/**",
-                        "/v3/api-docs/**",
-                        "/swagger-resources/**",
-                        "/webjars/**"
-                    ).permitAll()
                     // H2 Console (개발 환경용)
                     .requestMatchers("/h2-console/**").permitAll()
                     // Public test endpoint
                     .requestMatchers("/api/v1/test/public").permitAll()
-                    // Admin endpoints
+                    // Error endpoint
+                    .requestMatchers("/error").permitAll()
+                    // Admin endpoints  
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                    // Protected auth endpoints (logout, me, etc)
+                    .requestMatchers("/api/v1/auth/**").authenticated()
                     // All other endpoints require authentication
                     .anyRequest().authenticated()
             }
@@ -120,7 +127,7 @@ class SecurityConfig(
             allowedOrigins = this@SecurityConfig.allowedOrigins.split(",").map { it.trim() }
             allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
             allowedHeaders = listOf("*")
-            exposedHeaders = listOf("Authorization", "Content-Type")
+            exposedHeaders = listOf("Authorization", "X-Refresh-Token", "Content-Type")
             allowCredentials = true
             maxAge = 3600L
         }

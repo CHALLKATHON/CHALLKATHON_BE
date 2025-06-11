@@ -35,7 +35,7 @@ class TestController {
             "message" to "인증된 사용자입니다",
             "userId" to userPrincipal.id,
             "email" to userPrincipal.email,
-            "username" to userPrincipal.name,
+            "username" to userPrincipal.userName,
             "role" to userPrincipal.role.name,
             "provider" to userPrincipal.provider.name
         )

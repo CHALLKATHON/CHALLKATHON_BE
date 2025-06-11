@@ -1,0 +1,37 @@
+spring:
+  # 개발 서버용 데이터베이스 설정
+  datasource:
+    url: ${DEV_DATABASE_URL:jdbc:mysql://localhost:3306/challkathon_dev?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true}
+    username: ${DEV_DB_USERNAME:root}
+    password: ${DEV_DB_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update  # 개발 서버에서는 update 사용
+    show-sql: false   # 개발 서버에서는 SQL 로그 비활성화
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+
+# JWT 설정 (개발 서버용)
+jwt:
+  access-token-expiration: 3600000    # 1시간
+  refresh-token-expiration: 604800000 # 7일
+
+# 로깅 설정 (개발 서버용)
+logging:
+  level:
+    com.challkathon.demo: INFO
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.transaction: INFO

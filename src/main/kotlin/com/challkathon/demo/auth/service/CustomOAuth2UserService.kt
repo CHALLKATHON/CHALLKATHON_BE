@@ -15,7 +15,7 @@ private val log = KotlinLogging.logger {}
 
 @Service
 class CustomOAuth2UserService(
-    private val authService: AuthService
+    private val oAuth2UserService: OAuth2UserService
 ) : DefaultOAuth2UserService() {
 
     override fun loadUser(userRequest: OAuth2UserRequest): OAuth2User {
@@ -46,9 +46,9 @@ class CustomOAuth2UserService(
             val oauth2UserInfo = OAuth2UserInfo.of(provider, attributes)
             
             // 사용자 정보 처리 (신규 가입 또는 기존 사용자 업데이트)
-            val user = authService.processOAuthPostLogin(
+            val user = oAuth2UserService.processOAuthPostLogin(
                 email = oauth2UserInfo.email,
-                name = oauth2UserInfo.name,
+                username = oauth2UserInfo.name,
                 provider = oauth2UserInfo.provider,
                 providerId = oauth2UserInfo.id,
                 profileImageUrl = oauth2UserInfo.imageUrl
