@@ -1,6 +1,6 @@
 package com.challkathon.demo.auth.service
 
-import AuthResult
+import AuthResponse
 import com.challkathon.demo.auth.dto.request.SignInRequest
 import com.challkathon.demo.auth.dto.request.SignUpRequest
 import com.challkathon.demo.auth.dto.response.TokenInfoResponse
@@ -42,7 +42,7 @@ class AuthService(
     /**
      * 회원가입
      */
-    fun signUp(signUpRequest: SignUpRequest): AuthResult {
+    fun signUp(signUpRequest: SignUpRequest): AuthResponse {
         log.info { "회원가입 시도: ${signUpRequest.email}" }
 
         // 이메일 중복 검사
@@ -69,7 +69,7 @@ class AuthService(
 
         log.info { "회원가입 성공: ${savedUser.email}" }
 
-        return AuthResult(
+        return AuthResponse(
             accessToken = accessToken,
             refreshToken = refreshToken,
             userInfo = UserInfoResponse(
@@ -85,7 +85,7 @@ class AuthService(
     /**
      * 로그인
      */
-    fun signIn(signInRequest: SignInRequest): AuthResult {
+    fun signIn(signInRequest: SignInRequest): AuthResponse {
         log.info { "로그인 시도: ${signInRequest.email}" }
 
         try {
@@ -106,7 +106,7 @@ class AuthService(
 
             log.info { "로그인 성공: ${signInRequest.email}" }
 
-            return AuthResult(
+            return AuthResponse(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
                 userInfo = UserInfoResponse(
@@ -135,7 +135,7 @@ class AuthService(
     /**
      * 토큰 갱신
      */
-    fun refreshToken(refreshToken: String): AuthResult {
+    fun refreshToken(refreshToken: String): AuthResponse {
         log.info { "토큰 갱신 요청" }
 
         try {
@@ -156,7 +156,7 @@ class AuthService(
 
             log.info { "토큰 갱신 성공: $username" }
 
-            return AuthResult(
+            return AuthResponse(
                 accessToken = newAccessToken,
                 refreshToken = newRefreshToken,
                 userInfo = UserInfoResponse(

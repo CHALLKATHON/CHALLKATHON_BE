@@ -3,7 +3,7 @@ spring:
     name: challkathon-demo
   
   profiles:
-    active: local  # 기본 프로파일을 local로 설정
+    active: ${SPRING_PROFILES_ACTIVE:local}  # 환경 변수로 프로파일 선택, 기본값은 local
 
   # JPA 기본 설정
   jpa:
@@ -14,45 +14,29 @@ spring:
         order_inserts: true
         order_updates: true
 
-  # OAuth2 설정
-  security:
-    oauth2:
-      client:
-        registration:
-          kakao:
-            client-id: 7831406ec88574ac2d16c5a3c2445a28
-            client-secret: KaswvWWXLzw6eHPf5oHOTrZmRooVxjQr
-            client-name: kakao
-            authorization-grant-type: authorization_code
-            redirect-uri: http://localhost:8080/login/oauth2/code/kakao
-            client-authentication-method: client_secret_post
-            scope:
-              - profile_nickname
-              - account_email
-        provider:
-          kakao:
-            authorization-uri: https://kauth.kakao.com/oauth/authorize
-            token-uri: https://kauth.kakao.com/oauth/token
-            user-info-uri: https://kapi.kakao.com/v2/user/me
-            user-name-attribute: id
-
-# JWT 설정
+# JWT 설정 (공통)
 jwt:
-  secret: ${JWT_SECRET:CHANGE_THIS_TO_RANDOM_SECRET_KEY_MIN_64_CHARS_FOR_HS512_ALGORITHM_SECURITY}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}    # 1시간 (밀리초)
-  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000} # 7일 (밀리초)
-  issuer: ${JWT_ISSUER:challkathon-demo}
+  secret: dkfjslkdfjsldfkjdigasjodgiajsdiojsfoijdfsmdivmcvkzxjclvkvmzxcweifuoidf
+  access-token-expiration: 3600000    # 1시간 (밀리초)
+  refresh-token-expiration: 604800000 # 7일 (밀리초)
+  issuer: challkathon-demo
 
-# 앱 설정
+# 앱 설정 (기본값)
 app:
   oauth2:
     authorized-redirect-uris: ${AUTHORIZED_REDIRECT_URIS:http://localhost:3000/oauth2/redirect,http://localhost:8080/oauth2/redirect}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+  cookie:
+    refresh-token:
+      name: ${COOKIE_REFRESH_TOKEN_NAME:refreshToken}
+      max-age: ${COOKIE_REFRESH_TOKEN_MAX_AGE:604800}  # 7일 (초 단위)
+      domain: ${COOKIE_DOMAIN:localhost}
+      secure: ${COOKIE_SECURE:false}
 
-# 서버 설정
+# 서버 설정 (공통)
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
   servlet:
     context-path: /
     encoding:
@@ -60,16 +44,14 @@ server:
       enabled: true
       force: true
 
-# 로깅 설정 (디버그용)
+# 로깅 설정 (기본값)
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: TRACE
-    org.springframework.security.web: DEBUG
-    org.springframework.boot.autoconfigure.security: DEBUG
-    com.challkathon.demo: DEBUG
+    com.challkathon.demo: INFO
+    org.springframework.security: INFO
+    org.springframework.web: INFO
 
-# Swagger 설정
+# Swagger 설정 (공통)
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
